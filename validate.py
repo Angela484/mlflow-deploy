@@ -1,62 +1,68 @@
-# src/validate.py
 import joblib
 import pandas as pd
 from sklearn.metrics import mean_squared_error
 from sklearn.model_selection import train_test_split
-from sklearn.datasets import load_diabetes  # Importar load_diabetes
 import sys
 import os
 
-# Parámetro de umbral
-THRESHOLD = 5000.0  # Ajusta este umbral según el MSE esperado para load_diabetes
+# ---------------------------------------------------------------
+# 📦 Dataset Externo: Historical Product Demand (Kaggle)
+# Variables: Product_Code, Warehouse, Product_Category, Date, Order_Demand
+# ---------------------------------------------------------------
 
-# --- Cargar el MISMO dataset que en train.py ---
-print("--- Debug: Cargando dataset load_diabetes ---")
-X, y = load_diabetes(return_X_y=True, as_frame=True)  # Usar as_frame=True si quieres DataFrames
+THRESHOLD = 1e8  # umbral alto porque los valores de demanda son grandes
 
-# División de datos (usar los mismos datos que en entrenamiento no es ideal para validación real,
-# pero necesario aquí para que las dimensiones coincidan. Idealmente, tendrías un split dedicado
-# o usarías el X_test guardado del entrenamiento si fuera posible)
-# Para este ejemplo, simplemente re-dividimos para obtener un X_test con 10 features.
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)  # Añadir random_state para consistencia si es necesario
-print(f"--- Debug: Dimensiones de X_test: {X_test.shape} ---")  # Debería ser (n_samples, 10)
+print("--- Debug: Iniciando validación del modelo con dataset externo ---")
 
-# --- Cargar modelo previamente entrenado ---
-model_filename = "model.pkl"
-model_path = os.path.abspath(os.path.join(os.getcwd(), model_filename))
-print(f"--- Debug: Intentando cargar modelo desde: {model_path} ---")
-
-try:
-    model = joblib.load(model_path)
-except FileNotFoundError:
-    print(f"--- ERROR: No se encontró el archivo del modelo en '{model_path}'. Asegúrate de que el paso 'make train' lo haya guardado correctamente en la raíz del proyecto. ---")
-    # Listar archivos en el directorio actual para depuración
-    print(f"--- Debug: Archivos en {os.getcwd()}: ---")
-    try:
-        print(os.listdir(os.getcwd()))
-    except Exception as list_err:
-        print(f"(No se pudo listar el directorio: {list_err})")
-    print("---")
-    sys.exit(1)  # Salir con error
-
-# --- Predicción y Validación ---
-print("--- Debug: Realizando predicciones ---")
-try:
-    y_pred = model.predict(X_test)  # Ahora X_test tiene 10 features
-except ValueError as pred_err:
-    print(f"--- ERROR durante la predicción: {pred_err} ---")
-    # Imprimir información de características si el error persiste
-    print(f"Modelo esperaba {model.n_features_in_} features.")
-    print(f"X_test tiene {X_test.shape[1]} features.")
+# --- Cargar dataset ---
+data_path = "Historical Product Demand.csv"
+if not os.path.exists(data_path):
+    print(f"--- ERROR: No se encontró el archivo '{data_path}'. Asegúrate de subirlo al repositorio. ---")
     sys.exit(1)
 
+data = pd.read_csv(data_path)
+data = data.dropna()
+
+# Convertir fecha y codificar variables categóricas
+data["Date"] = pd.to_datetime(data["Date"])
+data["Days_Since_Start"] = (data["Date"] - data["Date"].min()).dt.days
+for col in ["Product_Code", "Warehouse", "Product_Category"]:
+    data[col] = data[col].astype("category").cat.codes
+
+# Variables predictoras y objetivo
+X = data[["Product_Code", "Warehouse", "Product_Category", "Days_Since_Start"]]
+y = data["Order_Demand"].astype(float)
+
+# División igual que en entrenamiento
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+print(f"--- Debug: Dimensiones de X_test: {X_test.shape} ---")
+
+# --- Cargar modelo ---
+model_filename = "model.pkl"
+if not os.path.exists(model_filename):
+    print(f"--- ERROR: No se encontró el modelo '{model_filename}'. Ejecuta train.py primero. ---")
+    print(f"--- Archivos disponibles en el directorio actual: {os.listdir(os.getcwd())} ---")
+    sys.exit(1)
+
+print(f"--- Debug: Cargando modelo desde {model_filename} ---")
+model = joblib.load(model_filename)
+
+# --- Predicción ---
+try:
+    y_pred = model.predict(X_test)
+except ValueError as e:
+    print(f"--- ERROR durante la predicción: {e} ---")
+    print(f"El modelo esperaba {model.n_features_in_} características, pero se encontró {X_test.shape[1]}.")
+    sys.exit(1)
+
+# --- Métrica de evaluación ---
 mse = mean_squared_error(y_test, y_pred)
 print(f"🔍 MSE del modelo: {mse:.4f} (umbral: {THRESHOLD})")
 
-# Validación
+# --- Validación final ---
 if mse <= THRESHOLD:
-    print("✅ El modelo cumple los criterios de calidad.")
-    sys.exit(0)  # éxito
+    print("✅ El modelo cumple los criterios de calidad y pasa la validación.")
+    sys.exit(0)
 else:
-    print("❌ El modelo no cumple el umbral. Deteniendo pipeline.")
-    sys.exit(1)  # error
+    print("❌ El modelo no cumple el umbral esperado. Deteniendo pipeline.")
+    sys.exit(1)
