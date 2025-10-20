@@ -1,0 +1,30 @@
+name: MLflow CI/CD            # nombre del workflow
+on:                           # cuándo se ejecuta
+  push:
+    branches: [ "main" ]      # cuando haces push a main
+  pull_request:
+    branches: [ "main" ]
+
+jobs:                         # define los pasos
+  build:
+    runs-on: ubuntu-latest    # entorno Linux
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3    # clona tu repo en el runner
+
+    - name: Set up Python
+      uses: actions/setup-python@v3
+      with:
+        python-version: '3.8'      # usa Python 3.8
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt   # instala tus librerías
+
+    - name: Train model
+      run: python train.py               # ejecuta tu script de entrenamiento
+
+    - name: Validate model
+      run: python validate.py            # ejecuta tu script de validación
