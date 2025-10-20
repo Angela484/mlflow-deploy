@@ -102,6 +102,10 @@ try:
             artifact_path="model"
         )
         print(f"✅ Modelo registrado correctamente. MSE: {mse:.4f}")
+        import joblib
+        joblib.dump(model, "model.pkl")
+        print("✅ Modelo guardado como model.pkl")
+
 
 except Exception as e:
     print(f"\n--- ERROR durante la ejecución de MLflow ---")
