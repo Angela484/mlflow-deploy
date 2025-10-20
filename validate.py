@@ -31,7 +31,19 @@ for col in ["Product_Code", "Warehouse", "Product_Category"]:
 
 # Variables predictoras y objetivo
 X = data[["Product_Code", "Warehouse", "Product_Category", "Days_Since_Start"]]
+# --- Limpiar columna Order_Demand ---
+# Algunos valores están entre paréntesis y representan números negativos, por ejemplo '(100)'
+data["Order_Demand"] = (
+    data["Order_Demand"]
+    .astype(str)
+    .str.replace("(", "-", regex=False)
+    .str.replace(")", "", regex=False)
+    .str.replace(",", "", regex=False)
+)
+
+# Convertir a float
 y = data["Order_Demand"].astype(float)
+
 
 # División igual que en entrenamiento
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
