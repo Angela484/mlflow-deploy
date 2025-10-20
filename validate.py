@@ -10,7 +10,7 @@ import os
 # Variables: Product_Code, Warehouse, Product_Category, Date, Order_Demand
 # ---------------------------------------------------------------
 
-THRESHOLD = 1e8  # umbral alto porque los valores de demanda son grandes
+THRESHOLD = 1.5e9  # umbral alto porque los valores de demanda son grandes
 
 print("--- Debug: Iniciando validación del modelo con dataset externo ---")
 
